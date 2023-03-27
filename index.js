@@ -114,11 +114,11 @@ function createNewEntry(nume, telefon, email, res) {
 
 // ---------- APP REQUESTS ----------
 app.get('/getAll', async (req, res) => {
-  let resultToSend = '';
+  let resultToSend = { numere: '' };
   const telefonFilter = Person.find({}, 'telefon');
   const result = await telefonFilter.exec();
   result.forEach((object) => {
-    resultToSend = resultToSend + object.telefon + ' ';
+    resultToSend.numere = resultToSend.numere + object.telefon + ' ';
   });
   res.send(resultToSend);
 });
