@@ -1,9 +1,8 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
-import mongoose, { isValidObjectId } from 'mongoose';
+import mongoose from 'mongoose';
 import bodyParser from 'body-parser';
-import fs from 'fs';
 
 const app = express();
 import cors from 'cors';
@@ -21,7 +20,7 @@ mongoose.connect(process.env.DATABASE_URL, {
   autoIndex: true,
 });
 
-// ---------- USER SCHEMA ----------
+// ---------- PERSON SCHEMA ----------
 
 const personSchema = new mongoose.Schema({
   email: {
@@ -45,7 +44,23 @@ personSchema.index({ telefon: 1 }, { unique: true });
 
 const Person = mongoose.model('Person', personSchema);
 
-//          REGEX
+// ---------- ERROR LOG SCHEMA ----------
+
+const errorLogSchema = new mongoose.Schema({
+  'data aparitiei': {
+    type: String,
+  },
+  'mesajul erorii': {
+    type: String,
+  },
+  'datele introduse': {
+    type: String,
+  },
+});
+
+const ErrorLog = mongoose.model('Error', errorLogSchema);
+
+// ---------- REGEX FOR THE NUMBER FORMAT ----------
 function checkIfPhoneNumberIsValid(number) {
   const regexWith0 = /^07\d{8}$/;
   const regexWithout0 = /^7\d{8}$/;
@@ -58,23 +73,29 @@ function checkIfPhoneNumberIsValid(number) {
   }
 }
 
-//          Write Error To File
-function writeErrorToFile(error) {
-  fs.appendFile('errors.txt', String(error) + new Date() + '\n', (err) => {
-    if (err) {
-      rejects(err);
-    } else {
-      resolve();
-    }
+// ---------- WRITE ERROR TO FILE ----------
+async function writeErrorToDatabase(error, data) {
+  const errorLog = new ErrorLog({
+    'data aparitiei': new Date().toString(),
+    'mesajul erorii': error.toString(),
+    'datele introduse': JSON.stringify(data),
   });
+
+  try {
+    await errorLog.save();
+  } catch (error) {
+    rejects(error);
+  }
 }
 
+// ---------- SEND WRONG FORMAT RESULT ----------
 function sendWrongFormat(res) {
   res.send(
     'Numarul specificat nu corescunde formatului 07XXXXXXXX sau 7XXXXXXXX. Verificati.'
   );
 }
 
+// ---------- CREATE NEW ENTRY ----------
 function createNewEntry(nume, telefon, email, res) {
   const intrareNoua = new Person({
     nume: nume || '',
@@ -91,10 +112,10 @@ function createNewEntry(nume, telefon, email, res) {
   return intrareNoua;
 }
 
+// ---------- APP REQUESTS ----------
 app.get('/getAll', async (req, res) => {
   const telefonFilter = Person.find({}, 'telefon');
   const result = await telefonFilter.exec();
-  let resultToSend = '';
   result.forEach((object) => {
     resultToSend = resultToSend + object.telefon + ' ';
   });
@@ -112,14 +133,15 @@ app.post('/addOne', async (req, res) => {
   try {
     await intrareNoua.save({ runValidators: true });
   } catch (error) {
-    if (error.code == 11000) {
+    if (error.code == 1100) {
       res.send('Numarul specificat exista deja in baza de date');
       return;
     } else {
-      writeErrorToFile(error);
+      writeErrorToDatabase(error, req.body);
       res.send(
         'A aparut o eroare. Am colectat date despre aceasta. Contactati service support sau reveniti dupa verificarea datelor. Va multumim!'
       );
+      return;
     }
   }
   res.send('Numarul a fost salvat');
@@ -143,34 +165,23 @@ app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
         insertOne: { document: intrareNoua },
       });
     }
-
-    async function saveItems(itemsToSave) {
-      try {
-        const result = await Person.bulkWrite(itemsToSave, { ordered: false });
-        if (result.insertedCount > 0) {
-          res.send(result);
-        } else {
-          writeErrorToFile(
-            `Eroare la salvarea numerelor. Am primit urmatoarele date: \n${JSON.stringify(
-              req.body
-            )} si nu au reusit sa se salveze ${numberOfFailedEntries} numere.`
-          );
-          res.send(
-            `${numberOfFailedEntries} numere nu au fost salvate.  Am colectat date despre aceasta eroare. Contactati service support sau reveniti dupa verificarea datelor. Va multumim!`
-          );
-        }
-        return;
-      } catch (error) {
-        writeErrorToFile(error);
-        res.send(
-          `${numberOfFailedEntries} numere nu au fost salvate.  Am colectat date despre aceasta eroare. Contactati service support sau reveniti dupa verificarea datelor. Va multumim!`
-        );
-        return;
-      }
-    }
-
-    saveItems(itemsToSave);
   });
+
+  async function saveItems(itemsToSave) {
+    try {
+      const result = await Person.bulkWrite(itemsToSave, { ordered: false });
+      res.send('Numerele au fost salvate');
+      return;
+    } catch (error) {
+      writeErrorToDatabase(error, req.body);
+      res.send(
+        `${numberOfFailedEntries} numere nu au fost salvate.  Am colectat date despre aceasta eroare. Contactati service support sau reveniti dupa verificarea datelor. Va multumim!`
+      );
+      return;
+    }
+  }
+
+  saveItems(itemsToSave);
 });
 
 const port = process.env.PORT;
