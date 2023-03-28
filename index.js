@@ -152,6 +152,7 @@ app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
   console.log(req.body);
   let numberOfFailedEntries = 0;
   const { numere } = req.body.nameValuePairs;
+  console.log(numere);
   const itemsToSave = [];
   numere.forEach((entry) => {
     const intrareNoua = createNewEntry(
