@@ -149,10 +149,8 @@ app.post('/addOne', async (req, res) => {
 });
 
 app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
-  console.log(req.body);
   let numberOfFailedEntries = 0;
   const { numere } = req.body.nameValuePairs;
-  console.log(numere);
   const itemsToSave = [];
   numere.forEach((entry) => {
     const intrareNoua = createNewEntry(
@@ -170,7 +168,7 @@ app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
     }
   });
 
-  async function saveItems(itemsToSave) {
+  async function saveItems(itemsToSave, res) {
     try {
       const result = await Person.bulkWrite(itemsToSave, { ordered: false });
       res.send('Numerele au fost salvate');
@@ -184,7 +182,7 @@ app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
     }
   }
 
-  saveItems(itemsToSave);
+  saveItems(itemsToSave, res);
 });
 
 const port = process.env.PORT;
