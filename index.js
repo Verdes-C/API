@@ -149,6 +149,7 @@ app.post('/addOne', async (req, res) => {
 });
 
 app.post('/addTelefonNumbersAsStringOrObjects', async (req, res) => {
+  console.log(req.body);
   let numberOfFailedEntries = 0;
   const { numere } = req.body;
   const itemsToSave = [];
